@@ -2,6 +2,7 @@
 #define _DHT11_H_
 
 #include <pigpio.h>
+#include <chrono>
 
 class DHT
 {
@@ -12,9 +13,10 @@ protected:
     float humidity;
 
     int timeoutLoops;
+    std::chrono::milliseconds timeoutms;
 
 public:
-    DHT(uint8_t p) : pin{p};
+    DHT(uint8_t p);
     int readData();
     float getTemp();
     float getHum();
