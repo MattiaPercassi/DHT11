@@ -11,8 +11,10 @@ protected:
     float temperature;
     float humidity;
 
+    int timeoutLoops;
+
 public:
-    DHT(uint8_t p) : pin{p} {};
+    DHT(uint8_t p) : pin{p};
     int readData();
     float getTemp();
     float getHum();
