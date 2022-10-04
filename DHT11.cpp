@@ -7,6 +7,8 @@ DHT::DHT(uint8_t p) : pin{p}
 {
     timeoutLoops = 200;                         // placeholder number
     timeoutms = std::chrono::milliseconds(200); // timeout after 200 ms
+    gpioSetMode(pin, PI_OUTPUT);
+    gpioWrite(pin, 1);
 };
 
 int DHT::readData()
@@ -20,7 +22,7 @@ int DHT::readData()
     gpioWrite(pin, 0); // send communication
     // wait for 20 ms, at least 18 as per data sheet
     auto start = std::chrono::high_resolution_clock::now();
-    while (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) <= std::chrono::milliseconds(20))
+    while (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) <= std::chrono::milliseconds(50))
         ;
     gpioWrite(pin, 1);
     gpioSetMode(pin, PI_INPUT);
@@ -28,7 +30,6 @@ int DHT::readData()
     /*  Response from sensor is LOW-HIGH-TRANSMISSION, timing is 80us-80us-4ms
         First listen to high while waiting for the sensor to start the reply, then listen to low and ensure is not timing out, then listen to high and ensure is not timing out, then start listening for data
     */
-    int loopsCounter{0};
     start = std::chrono::high_resolution_clock::now();
     while (gpioRead(pin) != 0)
     {
@@ -40,14 +41,14 @@ int DHT::readData()
     while (gpioRead(pin) == 0)
     {
         if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
-            return 2; // communication error
+            return 3; // communication error
     };
     loopsCounter = 0;
     start = std::chrono::high_resolution_clock::now();
     while (gpioRead(pin) != 0)
     {
         if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
-            return 2;
+            return 4;
     };
 
     /*If there have been no errors means the communication is starting correctly.
@@ -90,7 +91,7 @@ int DHT::readData()
         }
         pstate = state;
         if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
-            return 2;
+            return 5;
     };
 
     // once the communication is ended and all the bits are recorded we need to do the test for read correctness and translate the data into humidity and temperature floats
@@ -100,7 +101,7 @@ int DHT::readData()
         validationSum += bits[i];
     };
     if (validationSum != bits[4])
-        return 3; // wrong read
+        return 6; // wrong read
 
     // test code for validate the reading of data
     for (size_t i{0}; i < 5; ++i)
