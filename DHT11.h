@@ -2,7 +2,6 @@
 #define _DHT11_H_
 
 #include <pigpio.h>
-#include <iostream>
 
 class DHT
 {
