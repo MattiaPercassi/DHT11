@@ -1,3 +1,6 @@
+#ifndef _DHT11_H_
+#define _DHT11_H_
+
 #include <pigpio.h>
 #include <iostream>
 
@@ -15,3 +18,5 @@ public:
     float getTemp();
     float getHum();
 };
+
+#endif
