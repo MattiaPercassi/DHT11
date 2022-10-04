@@ -1,0 +1,110 @@
+#include <pigpio.g>
+#include <iostream>
+
+DHT::DHT(uint8_t p) : pin{p}
+{
+    timeoutLoops = 200; // placeholder number
+};
+
+int DHT::readData()
+{
+
+    // initially the pin must send in output a low signal
+    if (gpioSetMode(pin, PI_OUTPUT) != 0)
+    {
+        return 1; // error with library
+    };
+    gpioWrite(pin, 0); // send communication
+    // TODO - wait for a sufficient amount of time, at least 18 ms (from Datasheet)
+    gpioWrite(pin, 1);
+    gpioSetMode(pin, PI_INPUT);
+
+    /*  Response from sensor is LOW-HIGH-TRANSMISSION, timing is 80us-80us-4ms
+        First listen to high while waiting for the sensor to start the reply, then listen to low and ensure is not timing out, then listen to high and ensure is not timing out, then start listening for data
+    */
+    int loopsCounter{0};
+    while (gpioRead(pin) != 0)
+    {
+        if (loopsCounter++ == timeoutLoops)
+            return 2;
+    };
+    loopsCounter = 0;
+    while (gpioRead(pin) == 0)
+    {
+        if (loopsCounter++ == timeoutLoops)
+            return 2; // communication error
+    };
+    loopsCounter = 0;
+    while (gpioRead(pin) != 0)
+    {
+        if (loopsCounter++ == timeoutLoops)
+            return 2;
+    };
+
+    /*If there have been no errors means the communication is starting correctly.
+    Each bit is sent as a LOW-HIGH couple with timing 50us - 28 us for 0 and 50us - 70us for 1
+    To define short and long HIGH values we use a counter
+    */
+    loopsCounter = 0;
+    uint8_t state{0};
+    uint8_t pstate{0};
+    int zeroLoop{0};
+    uint8_t mask = 128; // bitwise 10000000
+    uint8_t data{0};    // bitwise 00000000
+    while (int i{0}; i < 40;)
+    {
+        state = gpioRead(pin);
+        if (state == 0 && pstate != 0) // change of voltage high to low indicates change of bit
+        {
+            // first bit is a zero, used to calibrate the length in loops
+            if (i == 0)
+            {
+                zeroLoop = loopsCounter;               // average length of the loop
+                delta = (timeoutLoops - zeroLoop) / 4; // interval +- into which define a loop as a "short" 0 loop
+            }
+            // since loopsCounter is reset only when bit changes we can check if it was a "short bit", a 0 or a "long bit" a 1
+            else if (loopsCounter >= zeroLoop + delta) // this is a 1
+            {
+                data |= mask; // write 1 in the current location of the 1 in mask MSBF (most significant bit first)
+            }
+            mask >>= 1;    // i.e. 10000000 -> 01000000 etc.
+            if (mask == 0) // after 8 bits the mask is 0, the values need to be written to buffer and the next set of bits need to be read
+            {
+                bits[i / 8] = data;
+                data = 0;
+                mask = 128;
+            };
+            loopsCounter = 0; // reset timeout counter in case we detect a change of bit
+            i++;
+        }
+        pstate = state;
+        if (loopsCounter++ == timeoutLoops)
+            return 2;
+    };
+
+    // once the communication is ended and all the bits are recorded we need to do the test for read correctness and translate the data into humidity and temperature floats
+    uint8_t validationSum{0};
+    for (size_t i{0}; i < 4; ++i)
+    {
+        validationSum += bits[i];
+    };
+    if (validationSum != bits[4])
+        return 3; // wrong read
+
+    // test code for validate the reading of data
+    for (size_t i{0}; i < 5; ++i)
+    {
+        std::cout << i << ": " << bits[i] << std::endl;
+    };
+    return 0;
+};
+
+float DHT::getTemp()
+{
+    return temperature;
+};
+
+float DHT::getHum()
+{
+    return humidity;
+};
