@@ -5,8 +5,8 @@
 
 DHT::DHT(uint8_t p) : pin{p}
 {
-    timeoutLoops = 200; // placeholder number
-    timeoutms = 200;    // timeout after 200 ms
+    timeoutLoops = 200;                         // placeholder number
+    timeoutms = std::chrono::milliseconds(200); // timeout after 200 ms
 };
 
 int DHT::readData()
@@ -32,21 +32,21 @@ int DHT::readData()
     start = std::chrono::high_resolution_clock::now();
     while (gpioRead(pin) != 0)
     {
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) <= timeoutms)
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
             return 2;
     };
     loopsCounter = 0;
     start = std::chrono::high_resolution_clock::now();
     while (gpioRead(pin) == 0)
     {
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) <= timeoutms)
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
             return 2; // communication error
     };
     loopsCounter = 0;
     start = std::chrono::high_resolution_clock::now();
     while (gpioRead(pin) != 0)
     {
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) <= timeoutms)
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
             return 2;
     };
 
@@ -57,10 +57,10 @@ int DHT::readData()
     loopsCounter = 0;
     uint8_t state{0};
     uint8_t pstate{0};
-    std::chrono::duration zeroLoop{0};
+    std::chrono::milliseconds zeroLoop{0};
     uint8_t mask = 128; // bitwise 10000000
     uint8_t data{0};    // bitwise 00000000
-    std::chrono::milliseconds delta{0};
+    auto delta = std::chrono::milliseconds(10);
     start = std::chrono::high_resolution_clock::now();
     for (int i{0}; i < 40;)
     {
@@ -71,7 +71,6 @@ int DHT::readData()
             if (i == 0)
             {
                 zeroLoop = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start); // average length of the loop
-                delta = 10;                                                                                                          // interval +- 10ms
             }
             // since loopsCounter is reset only when bit changes we can check if it was a "short bit", a 0 or a "long bit" a 1
             else if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) >= zeroLoop + delta) // this is a 1
