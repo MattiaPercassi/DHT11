@@ -12,8 +12,8 @@ protected:
     float temperature;
     float humidity;
 
-    int timeoutLoops;
-    std::chrono::microseconds timeoutms;
+    std::chrono::milliseconds requestTime;
+    std::chrono::microseconds timeoutTime;
 
 public:
     DHT(uint8_t p);

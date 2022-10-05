@@ -5,8 +5,8 @@
 
 DHT::DHT(uint8_t p) : pin{p}
 {
-    timeoutLoops = 200;                         // placeholder number
-    timeoutms = std::chrono::microseconds(200); // timeout after 200 us
+    timeoutLoops = 200;                           // placeholder number
+    timeoutTime = std::chrono::microseconds(200); // timeout after 200 us
     gpioSetMode(pin, PI_OUTPUT);
     gpioWrite(pin, 1);
     // wait 2 seconds for ensuring proper connection
@@ -37,19 +37,19 @@ int DHT::readData()
     start = std::chrono::high_resolution_clock::now();
     while (gpioRead(pin) != 0)
     {
-        if (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
+        if (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutTime)
             return 2;
     };
     start = std::chrono::high_resolution_clock::now();
     while (gpioRead(pin) == 0)
     {
-        if (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
+        if (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutTime)
             return 3; // communication error
     };
     start = std::chrono::high_resolution_clock::now();
     while (gpioRead(pin) != 0)
     {
-        if (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
+        if (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutTime)
             return 4;
     };
 
@@ -90,7 +90,7 @@ int DHT::readData()
             i++;
         }
         pstate = state;
-        if (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
+        if (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutTime)
             return 5;
     };
 
@@ -108,6 +108,9 @@ int DHT::readData()
     {
         std::cout << i << ": " << static_cast<int>(bits[i]) << std::endl;
     };
+
+    humidity = bits[0] + bits[1] * 0.1;
+    temperature = bits[2] + bits[3] * 0.1;
     return 0;
 };
 
