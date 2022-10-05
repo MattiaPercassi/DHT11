@@ -13,7 +13,7 @@ protected:
     float humidity;
 
     int timeoutLoops;
-    std::chrono::milliseconds timeoutms;
+    std::chrono::microseconds timeoutms;
 
 public:
     DHT(uint8_t p);

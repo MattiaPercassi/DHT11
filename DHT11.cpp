@@ -6,9 +6,13 @@
 DHT::DHT(uint8_t p) : pin{p}
 {
     timeoutLoops = 200;                         // placeholder number
-    timeoutms = std::chrono::milliseconds(200); // timeout after 200 ms
+    timeoutms = std::chrono::microseconds(200); // timeout after 200 ms
     gpioSetMode(pin, PI_OUTPUT);
     gpioWrite(pin, 1);
+    // wait 2 seconds for ensuring proper connection
+    auto start = std::chrono::high_resolution_clock::now();
+    while (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start) <= std::chrono::seconds(2))
+        ;
 };
 
 int DHT::readData()
@@ -22,7 +26,7 @@ int DHT::readData()
     gpioWrite(pin, 0); // send communication
     // wait for 20 ms, at least 18 as per data sheet
     auto start = std::chrono::high_resolution_clock::now();
-    while (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) <= std::chrono::milliseconds(50))
+    while (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) <= std::chrono::milliseconds(20))
         ;
     gpioWrite(pin, 1);
     gpioSetMode(pin, PI_INPUT);
@@ -33,21 +37,19 @@ int DHT::readData()
     start = std::chrono::high_resolution_clock::now();
     while (gpioRead(pin) != 0)
     {
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
+        if (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
             return 2;
     };
-    loopsCounter = 0;
     start = std::chrono::high_resolution_clock::now();
     while (gpioRead(pin) == 0)
     {
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
+        if (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
             return 3; // communication error
     };
-    loopsCounter = 0;
     start = std::chrono::high_resolution_clock::now();
     while (gpioRead(pin) != 0)
     {
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
+        if (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
             return 4;
     };
 
@@ -55,13 +57,12 @@ int DHT::readData()
     Each bit is sent as a LOW-HIGH couple with timing 50us - 28 us for 0 and 50us - 70us for 1
     To define short and long HIGH values we use a counter
     */
-    loopsCounter = 0;
     uint8_t state{0};
     uint8_t pstate{0};
-    std::chrono::milliseconds zeroLoop{0};
+    std::chrono::microseconds zeroLoop{0};
     uint8_t mask = 128; // bitwise 10000000
     uint8_t data{0};    // bitwise 00000000
-    auto delta = std::chrono::milliseconds(10);
+    auto delta = std::chrono::microseconds(10);
     start = std::chrono::high_resolution_clock::now();
     for (int i{0}; i < 40;)
     {
@@ -71,10 +72,10 @@ int DHT::readData()
             // first bit is a zero, used to calibrate the length in loops
             if (i == 0)
             {
-                zeroLoop = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start); // average length of the loop
+                zeroLoop = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start); // average length of the loop
             }
             // since loopsCounter is reset only when bit changes we can check if it was a "short bit", a 0 or a "long bit" a 1
-            else if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) >= zeroLoop + delta) // this is a 1
+            else if (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start) >= zeroLoop + delta) // this is a 1
             {
                 data |= mask; // write 1 in the current location of the 1 in mask MSBF (most significant bit first)
             }
@@ -86,11 +87,10 @@ int DHT::readData()
                 mask = 128;
             };
             start = std::chrono::high_resolution_clock::now(); // reset start timer
-            loopsCounter = 0;                                  // reset timeout counter in case we detect a change of bit
             i++;
         }
         pstate = state;
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
+        if (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start) >= timeoutms)
             return 5;
     };
 
