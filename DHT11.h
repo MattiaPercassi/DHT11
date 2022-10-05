@@ -14,6 +14,7 @@ protected:
 
     std::chrono::milliseconds requestTime;
     std::chrono::microseconds timeoutTime;
+    std::chrono::microseconds responseTolerance;
 
 public:
     DHT(uint8_t p);

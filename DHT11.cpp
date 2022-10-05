@@ -3,10 +3,8 @@
 #include <chrono>
 #include "DHT11.h"
 
-DHT::DHT(uint8_t p) : pin{p}
+DHT::DHT(uint8_t p) : pin{p}, requestTime{std::chrono::milliseconds(20)}, timeoutTime{std::chrono::microseconds(200)}, responseTolerance{std::chrono::microseconds(10)}
 {
-    timeoutLoops = 200;                           // placeholder number
-    timeoutTime = std::chrono::microseconds(200); // timeout after 200 us
     gpioSetMode(pin, PI_OUTPUT);
     gpioWrite(pin, 1);
     // wait 2 seconds for ensuring proper connection
@@ -26,7 +24,7 @@ int DHT::readData()
     gpioWrite(pin, 0); // send communication
     // wait for 20 ms, at least 18 as per data sheet
     auto start = std::chrono::high_resolution_clock::now();
-    while (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) <= std::chrono::milliseconds(20))
+    while (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start) <= requestTime)
         ;
     gpioWrite(pin, 1);
     gpioSetMode(pin, PI_INPUT);
@@ -62,7 +60,6 @@ int DHT::readData()
     std::chrono::microseconds zeroLoop{0};
     uint8_t mask = 128; // bitwise 10000000
     uint8_t data{0};    // bitwise 00000000
-    auto delta = std::chrono::microseconds(10);
     start = std::chrono::high_resolution_clock::now();
     for (int i{0}; i < 40;)
     {
@@ -75,7 +72,7 @@ int DHT::readData()
                 zeroLoop = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start); // average length of the loop
             }
             // since loopsCounter is reset only when bit changes we can check if it was a "short bit", a 0 or a "long bit" a 1
-            else if (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start) >= zeroLoop + delta) // this is a 1
+            else if (std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start) >= zeroLoop + responseTolerance) // this is a 1
             {
                 data |= mask; // write 1 in the current location of the 1 in mask MSBF (most significant bit first)
             }
@@ -102,12 +99,6 @@ int DHT::readData()
     };
     if (validationSum != bits[4])
         return 6; // wrong read
-
-    // test code for validate the reading of data
-    for (size_t i{0}; i < 5; ++i)
-    {
-        std::cout << i << ": " << static_cast<int>(bits[i]) << std::endl;
-    };
 
     humidity = bits[0] + bits[1] * 0.1;
     temperature = bits[2] + bits[3] * 0.1;
