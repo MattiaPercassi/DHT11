@@ -6,7 +6,7 @@
 DHT::DHT(uint8_t p) : pin{p}
 {
     timeoutLoops = 200;                         // placeholder number
-    timeoutms = std::chrono::microseconds(200); // timeout after 200 ms
+    timeoutms = std::chrono::microseconds(200); // timeout after 200 us
     gpioSetMode(pin, PI_OUTPUT);
     gpioWrite(pin, 1);
     // wait 2 seconds for ensuring proper connection
@@ -106,7 +106,7 @@ int DHT::readData()
     // test code for validate the reading of data
     for (size_t i{0}; i < 5; ++i)
     {
-        std::cout << i << ": " << bits[i] << std::endl;
+        std::cout << i << ": " << static_cast<int>(bits[i]) << std::endl;
     };
     return 0;
 };
